@@ -23,7 +23,7 @@ func (x *Any) UnmarshalJSON(p []byte) error {
 	cc := fmt.Sprintf("%c", tok)
 	_ = cc
 	if buff.eof() {
-		return nil
+		return fmt.Errorf("error when decoding any: %w", io.ErrUnexpectedEOF)
 	}
 	if bytes.Equal(buff.tail(), []byte("null")) {
 		return nil
@@ -46,6 +46,10 @@ func (x *Any) UnmarshalJSON(p []byte) error {
 	if err != nil {
 		return err
 	}
+	buff.eatSpace()
+	if !buff.eof() {
+		return fmt.Errorf("error decoding value: trailing data after value")
+	}
 	x.v = v
 	return nil
 }
@@ -58,14 +62,22 @@ func jsonUnmarshalAnyObject(buff *jsonBuff) (*Map[string, any], error) {
 		return nil, err
 	}
 
+	var m Map[string, any]
+
+	// check for empty object case:
+	if buff.more() && buff.peek() == '}' {
+		buff.move(1)
+		return &m, nil
+	}
+
 	const (
 		stateDecodeKey = iota
 		stateDecodevalue
+		stateObjectCompleted
 	)
 
 	state := stateDecodeKey
 
-	var m Map[string, any]
 decodeLoop:
 	for buff.more() {
 		tok := buff.peek()
@@ -121,6 +133,7 @@ decodeLoop:
 
 			tok = buff.peek()
 			if tok == '}' {
+				state = stateObjectCompleted
 				buff.move(1)
 				break decodeLoop
 			}
@@ -131,11 +144,16 @@ decodeLoop:
 			state = stateDecodeKey
 		}
 	}
+
+	if state != stateObjectCompleted {
+		return nil, fmt.Errorf("error when decoding object: %w", io.ErrUnexpectedEOF)
+	}
+
 	return &m, nil
 }
 
 func jsonUnmarshalAnyArray(buff *jsonBuff) ([]any, error) {
-	var res []any
+	var res = make([]any, 0)
 
 	err := buff.Expect('[')
 	if err != nil { // note: will not happen, we reach here because we come from .UnmarshalJSON
@@ -143,11 +161,13 @@ func jsonUnmarshalAnyArray(buff *jsonBuff) ([]any, error) {
 	}
 
 	firstValue := true
+	arrayCompleted := false
 
 decodeLoop:
 	for buff.more() {
 		tok := buff.peek()
 		if tok == ']' {
+			arrayCompleted = true
 			buff.move(1)
 			break decodeLoop
 		}
@@ -186,6 +206,10 @@ decodeLoop:
 
 		firstValue = false
 		res = append(res, v)
+	}
+
+	if !arrayCompleted {
+		return nil, fmt.Errorf("error when decoding array: %w", io.ErrUnexpectedEOF)
 	}
 
 	return res, nil

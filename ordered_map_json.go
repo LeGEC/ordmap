@@ -15,7 +15,7 @@ func (m *Map[K, V]) UnmarshalJSON(p []byte) error {
 	buff.peek()
 	// if there is nothing to read: nothing to do
 	if buff.eof() {
-		return nil
+		return fmt.Errorf("error when decoding map: %w", io.ErrUnexpectedEOF)
 	}
 	if bytes.Equal(buff.tail(), []byte("null")) {
 		m.m = nil
@@ -23,10 +23,20 @@ func (m *Map[K, V]) UnmarshalJSON(p []byte) error {
 		return nil
 	}
 
-	const (
-		decKey = iota
-		decValue
-	)
+	err := buff.Expect('{')
+	if err != nil {
+		return fmt.Errorf("error when decoding map: %w", err)
+	}
+
+	// check for empty object case:
+	if buff.more() && buff.peek() == '}' {
+		buff.move(1)
+		buff.eatSpace()
+		if !buff.eof() {
+			return fmt.Errorf("error when decoding map: extra trailing data")
+		}
+		return nil
+	}
 
 	var (
 		key   K
@@ -36,12 +46,13 @@ func (m *Map[K, V]) UnmarshalJSON(p []byte) error {
 		zeroV V
 	)
 
-	err := buff.Expect('{')
-	if err != nil {
-		return fmt.Errorf("error when decoding map: %w", err)
-	}
+	const (
+		stateDecodeKey = iota
+		stateDecodevalue
+		stateObjectCompleted
+	)
 
-	state := decKey
+	state := stateDecodeKey
 
 decodeLoop:
 	for buff.more() {
@@ -51,7 +62,7 @@ decodeLoop:
 		}
 
 		switch state {
-		case decKey:
+		case stateDecodeKey:
 			if tok != '"' {
 				return fmt.Errorf("error when decoding map key: expected '\"', got '%c'", tok)
 			}
@@ -66,9 +77,9 @@ decodeLoop:
 			if err != nil {
 				return fmt.Errorf("error when decoding key value pair: %w", err)
 			}
-			state = decValue
+			state = stateDecodevalue
 
-		case decValue:
+		case stateDecodevalue:
 			if !isValidFirstByte(tok) {
 				return fmt.Errorf("error when decoding map value: expected a value start, got '%c'", tok)
 			}
@@ -82,6 +93,7 @@ decodeLoop:
 
 			tok = buff.peek()
 			if tok == '}' {
+				state = stateObjectCompleted
 				buff.move(1)
 				break decodeLoop
 			}
@@ -89,14 +101,18 @@ decodeLoop:
 				return fmt.Errorf("error when decoding map: expected ',', got '%c'", tok)
 			}
 			buff.move(1)
-			state = decKey
+			state = stateDecodeKey
 		}
 	}
 
-	if buff.peek() != 0 {
+	buff.eatSpace()
+	if !buff.eof() {
 		return fmt.Errorf("error when decoding map: expected JSON payload to end at '}', got extra data")
 	}
 
+	if state != stateObjectCompleted {
+		return fmt.Errorf("error when decoding map: %w", io.ErrUnexpectedEOF)
+	}
 	return nil
 }
 

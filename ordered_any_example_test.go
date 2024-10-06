@@ -1,9 +1,11 @@
-package ordmap
+package ordmap_test
 
 import (
 	"encoding/json"
 	"fmt"
 	"os"
+
+	"github.com/LeGEC/ordmap"
 )
 
 func ExampleStandard() {
@@ -26,7 +28,7 @@ func ExampleStandard() {
 	enc.SetIndent("", "  ")
 	enc.Encode(x)
 
-	// regular go unmarshaling: the order of the keys have not been preserved
+	// regular go unmarshaling: the order of the keys is not preserved
 
 	// Output:
 	// {
@@ -42,7 +44,7 @@ func ExampleStandard() {
 	// }
 }
 
-func ExampleOrderedMap() {
+func ExampleMap() {
 	input := `{
 		"last_name": "Doe",
 		"first_name": "John",
@@ -55,7 +57,7 @@ func ExampleOrderedMap() {
 		}
 	}`
 
-	var x Map[string, any]
+	var x ordmap.Map[string, any]
 	_ = json.Unmarshal([]byte(input), &x)
 
 	enc := json.NewEncoder(os.Stdout)
@@ -79,7 +81,7 @@ func ExampleOrderedMap() {
 	// }
 }
 
-func ExampleOrderedAny() {
+func ExampleAny() {
 	input := `{
   "last_name": "Doe",
   "first_name": "John",
@@ -92,7 +94,7 @@ func ExampleOrderedAny() {
   }
 }`
 
-	var x Any
+	var x ordmap.Any
 	_ = json.Unmarshal([]byte(input), &x)
 
 	// ordmap.Any: all objects, including nested, are unmarshalled as ordmap.Map,
@@ -103,7 +105,7 @@ func ExampleOrderedAny() {
 
 	fmt.Println()
 
-	obj := x.V().(*Map[string, any])
+	obj := x.V().(*ordmap.Map[string, any])
 	// the type for any json object is '*ordmap.Map[string, any]':
 	fmt.Printf("type for skills: %T\n", obj.Get("skills"))
 	// the type for other fields is the regular go type for generic unmarshalling
