@@ -86,3 +86,42 @@ bbb:
 	expected = strings.TrimSpace(expected)
 	assert.Equal(t, expected, got)
 }
+
+func FuzzMapYaml(f *testing.F) {
+	f.Add(``)
+	f.Add(`~`)
+	f.Add(`{}`)
+	f.Add(`{"x":1,"x":2}`)
+	f.Add(`{"b":1,"c":true,"d":"three"}`)
+
+	f.Add(`[]`)
+	f.Add(`["one",true,3]`)
+	f.Fuzz(func(t *testing.T, payload string) {
+		var m = map[string]any{}
+		errStd := yaml.Unmarshal([]byte(payload), &m)
+
+		var om Map[string, any]
+		errOm := yaml.Unmarshal([]byte(payload), &om)
+
+		hasErrStd := errStd != nil
+		hasErrOm := errOm != nil
+
+		if hasErrStd != hasErrOm {
+			t.Logf("*** error for standard map: %v", errStd)
+			t.Logf("*** error for  ordered map: %v", errOm)
+			require.Equal(t, hasErrStd, hasErrOm, "got error in one case and not the other, payload: |%s|", payload)
+		}
+
+		if hasErrStd {
+			return
+		}
+
+		// no error: check that values match
+		for k, v := range om.ForAll() {
+			require.EqualValues(t, m[k], v, "payload: |%s|", payload)
+		}
+		for k := range m {
+			require.EqualValues(t, m[k], om.Get(k), "payload: |%s|", payload)
+		}
+	})
+}

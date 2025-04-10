@@ -62,6 +62,9 @@ func yamlUnmarshalAnyObject(node *yaml.Node) (*Map[any, any], error) {
 		if err != nil {
 			return nil, fmt.Errorf("error when decoding object key: %w", err)
 		}
+		if _, ok := m.m[key]; ok {
+			return nil, fmt.Errorf("error when decoding object: duplicate key %v", key)
+		}
 
 		switch valueNode.Kind {
 		case yaml.DocumentNode:

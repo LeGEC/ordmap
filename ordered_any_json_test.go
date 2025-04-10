@@ -192,7 +192,7 @@ func FuzzAnyJsonDecoder(f *testing.F) {
 	})
 }
 
-func jsonCompact(input string) string {
+func normalizeJson(input string) string {
 	var x any
 	err := json.Unmarshal([]byte(input), &x)
 	if err != nil {
@@ -218,7 +218,7 @@ func FuzzAnyJsonUnmarshal(f *testing.F) {
 	f.Add(`{"a":1,"c":2,"b":3}`)
 
 	f.Fuzz(func(t *testing.T, input string) {
-		input = jsonCompact(input)
+		input = normalizeJson(input)
 		if input == "" {
 			return
 		}

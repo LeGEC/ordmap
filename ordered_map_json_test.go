@@ -136,6 +136,7 @@ func TestOrderedMapMarshalJson(t *testing.T) {
 func FuzzMapUnmarshalJSON(f *testing.F) {
 	f.Add(`{}`)
 	f.Add(`{"a":1,"c":2,"b":3}`)
+	f.Add(`{"a":1,"a":2}`)
 	// incorrect json:
 	f.Add(``)
 	f.Add(`{`)
@@ -160,6 +161,7 @@ func FuzzMapUnmarshalJSON(f *testing.F) {
 func FuzzMapJsonDecoder(f *testing.F) {
 	f.Add(`{}`)
 	f.Add(`{"a":1,"c":2,"b":3}`)
+	f.Add(`{"a":1,"a":2}`)
 	// incorrect json:
 	f.Add(``)
 	f.Add(`{`)

@@ -39,6 +39,9 @@ func (m *Map[K, V]) UnmarshalYAML(value *yaml.Node) error {
 		if err := keyNode.Decode(&key); err != nil {
 			return fmt.Errorf("failed to decode key at index %d: %w", i, err)
 		}
+		if _, ok := myMap[key]; ok {
+			return fmt.Errorf("duplicate key: %v", key)
+		}
 
 		var val V
 		if err := valueNode.Decode(&val); err != nil {
